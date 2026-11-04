@@ -1,7 +1,7 @@
 """Pattern A loop: fetch (outside sandbox) -> model writes Python -> sandbox runs it -> retry on error (max 3)
 -> cross-check against deterministic reference -> model explains with caveats."""
 import json, pathlib, re, sys, time
-from . import sec, xbrl, screens, llm, sandbox
+from . import sec, xbrl, screens, llm, sandbox, prices
 import os
 RUNS = pathlib.Path(os.getenv("RR_ROOT", pathlib.Path(__file__).resolve().parent.parent)) / "runs"
 TASK = """You are a forensic-accounting analyst writing ONE Python 3.12 script (stdlib + numpy + pandas only).
@@ -83,6 +83,10 @@ DATA_DESC = """Data (read-only) is in /data:
   each fact has val, end, optional start (duration facts), fy, fp, form, filed, accn.
 - /data/filings.json : a JSON OBJECT; the list of this company's 8-K Item 4.02 notices, 10-K/A, 10-Q/A, CORRESP, UPLOAD
   filings is under key "filings" (each: form, filed, url, items). Metadata only, no document text.
+- /data/prices.json : daily adjusted closes {"series": [[date, close], ...], "benchmark_series": [[date, close], ...] (IWM)}
+  from Yahoo Finance (may be empty if no price data, e.g. delisted).
+- /data/events.json : reference event study per Item 4.02 notice (day 0 from EDGAR acceptance time; raw and IWM-adjusted
+  returns over day 0, 0-1, 0-5, 0-30 trading days; same-day other 8-Ks as confounders).
 - /data/tag_map.json : line item -> ordered list of fallback XBRL tags. Try every fallback tag in order.
 - /data/available_tags.json : for each line item, the fallback tags that ACTUALLY have USD facts in this company's file
   (with fact counts). Use these before concluding data is missing.
@@ -158,6 +162,11 @@ def prepare(ticker):
     (data / "companyfacts.json").write_text(json.dumps(cf)); (data / "filings.json").write_text(json.dumps(fl))
     (data / "tag_map.json").write_text(json.dumps(xbrl.TAGS, indent=1))
     (data / "available_tags.json").write_text(json.dumps(available_tags(cf), indent=1))
+    try: es = prices.company_events(c["ticker"], fl.get("eightks", []))
+    except Exception as x: es = {"has_prices": False, "error": type(x).__name__, "events": [], "series": []}
+    (data / "prices.json").write_text(json.dumps({"ticker": c["ticker"], "source": es.get("source"), "series": es.get("series", []),
+        "benchmark": "IWM", "benchmark_series": [(d.isoformat(), v) for d, v in (prices.history("IWM") or [])]}))
+    (data / "events.json").write_text(json.dumps({k: v for k, v in es.items() if k != "series"}, default=str))
     return c, cf, fl, run
 def analyse(ticker, log=lambda *_: None):
     c, cf, fl, run = prepare(ticker); cik, name = c["cik"], c["name"]

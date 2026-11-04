@@ -2,7 +2,10 @@
 
 Live: https://rr.207-246-93-241.sslip.io (Vultr VM, alongside Prove-It)
 
-Looks at companies that restated (8-K Item 4.02 non-reliance, 10-K/A, 10-Q/A). For each one it shows what changed,
+Looks at companies that restated (8-K Item 4.02 non-reliance, 10-K/A, 10-Q/A). First question: **did the stock fall,
+and when?** Each company page has an event study around every Item 4.02 notice (price chart with the notice marked,
+raw and Russell-2000-adjusted returns over day 0, 0–1, 0–5 and 0–30 trading days, same-day earnings or other 8-Ks
+flagged as confounders) and a CourtListener lookup for securities class actions filed within a year. Then it shows what changed,
 the SEC correspondence on file, any AAER name match, and published forensic screens recomputed from SEC XBRL data.
 A free-form "ask" box lets a model write code against that company's data. The code runs in a sandbox with no
 network, and every attempt is shown.
@@ -13,7 +16,28 @@ network, and every attempt is shown.
 - M-score (Beneish 1999), F-score (Dechow et al. 2011) and Benford MAD (Nigrini) here are approximations of published
   academic screens on XBRL data. They are not the SEC's non-public Accounting Quality Model.
 - A score is a screen, not a prediction.
-- The backtest page shows what happened to 2021–2023 restaters. It makes no accuracy claim.
+- The "What happened" page describes how stocks moved after 2021–2023 notices. It makes no predictive or causal claim.
+
+## What happened after 2021–2023 Item 4.02 notices (`scripts/backtest.py`, run 2026-11-04)
+1,031 companies (first notice per company, EDGAR full-text search). 557 are SPACs/shells and 474 are operating
+companies. The SPAC/shell rule is SIC 6770 (blank checks), or a name like "… Acquisition Corp/Inc/Ltd", "blank check"
+or "merger corp".
+
+| | Operating | SPAC/shell |
+|---|---|---|
+| Usable prices | 307 of 474 | 98 of 557 |
+| No ticker found / no price data (delisted?) / no price near the filing | 70 / 79 / 18 | 374 / 54 / 31 |
+| Median return minus IWM, day 0 | −0.4% | +0.2% |
+| Median, day 0 to 5 | −2.0% (21% worse than −10%) | −0.2% |
+| Median, day 0 to 30 | −3.0% (37% worse than −10%) | +1.2% |
+| Earnings release (Item 2.02) in the notice or another 8-K the same day | 83 | 0 |
+| Median day 0 to 5 excluding those | −1.8% (n=224) | −0.2% |
+| Later AAER, name match | 18 | 2 |
+| Later filing mentions a securities class-action complaint (possible, verify) | 14 | 3 |
+
+Coverage is biased toward survivors: companies that were delisted or acquired often have no price data. Most
+SPAC notices were the April 2021 warrant-accounting wave, which moved prices very little.
+
 
 ## Architecture (Pattern A: model writes code, sandbox runs it)
 
@@ -53,9 +77,10 @@ from run to run.
 ## Screenshots
 | | |
 |---|---|
-| ![home](shots/01-home.png) | ![backtest](shots/02-backtest.png) |
+| ![home](shots/01-home.png) | ![what happened](shots/02-backtest.png) |
 | ![GoPro report](shots/04-report-GPRO.png) | ![PetMed network blocked](shots/07-ask-PETS-10KA-network-blocked.png) |
 | ![GoPro 10-K/A blocked](shots/10-ask-GPRO-10KA-network-blocked.png) | ![about](shots/03-about.png) |
+| ![GoPro event study](shots/11-event-GPRO.png) | ![PetMed event study](shots/12-event-PETS.png) |
 
 ## Vultr services used
 - **Vultr Cloud Compute** VM (Docker, Caddy TLS via sslip.io). This is a separate compose project `rr` next to
@@ -65,13 +90,38 @@ from run to run.
 ## Run
 ```
 docker compose -p rr up -d --build      # .env needs VULTR_INFERENCE_API_KEY (never committed, never passed to sandbox)
-python3 scripts/backtest.py             # regenerates data/backtest.json
+python3 scripts/backtest.py             # regenerates data/backtest.json (~45 min cold: SEC + ~600 price pulls at 1/s)
 python3 -m pytest -q tests
 ```
-Data sources: SEC EDGAR full-text search, submissions, companyfacts, the comment-letter (CORRESP/UPLOAD) index, and
-the AAER list. The User-Agent is set as the SEC requires.
+Data sources:
+- SEC EDGAR: full-text search, submissions (including `acceptanceDateTime`, which is UTC), companyfacts, the
+  comment-letter (CORRESP/UPLOAD) index, and the AAER list. The User-Agent is set as the SEC requires, at no more
+  than 8 requests per second.
+- Prices: the Yahoo Finance chart endpoint (`query1.finance.yahoo.com/v8/finance/chart`), adjusted closes, with IWM
+  as the benchmark. **This endpoint is unofficial and undocumented, and Yahoo's terms restrict automated use.** It is
+  used best-effort for a non-commercial demo, at about 1 request per second, and cached for 12 hours. It can change or
+  disappear. Swap in a licensed feed for anything real.
+- Class actions: CourtListener RECAP search API (v4). The token comes from `COURTLISTENER_API_TOKEN` in `.env`. It
+  searches dockets whose caption names the company, with a securities nature of suit, "10b-5" or "Securities Exchange
+  Act", filed within 365 days after the notice. Results are cached for 7 days. If the API is down, the page says
+  "CourtListener unavailable, retry later".
+
+Prices are fetched by the app, outside the sandbox. They are staged read-only as `/data/prices.json` and
+`/data/events.json`, so the model's code can use them without network.
 
 ## Known limits
+- Event study:
+  - Day 0 is the EDGAR acceptance time converted to New York time. A filing at or after 16:00 moves to the next
+    trading day.
+  - The 0–30 window is labeled "partial" when it isn't complete yet.
+  - Simple return minus IWM is not a market-model abnormal return. There are no t-stats.
+  - Same-day news other than 8-Ks (press releases, analyst notes) is not detected.
+  - The ticker comes from EDGAR's display name at filing time, then current SEC tickers, then a Workiva-style file name.
+    A result is used only if prices exist within a week of the notice. This guards against a ticker later reused by a
+    different security (e.g. warrants).
+- The "possible class-action disclosure" column is a text match, so it has false positives. Some cases predate the
+  notice, are Delaware Chancery fiduciary suits, or are employee suits. Open the filing.
+- A CourtListener miss is not proof that no suit exists: RECAP coverage is incomplete and the caption may use another name.
 - XBRL tag gaps (custom tags, missing receivables or COGS) make screens "insufficient data". This is common for SPACs
   and banks.
 - AAER matching is by exact normalized company name, so misses are possible. An AAER may also concern a different

@@ -57,13 +57,17 @@ def filings(cik):
     for b in blocks:
         for i, form in enumerate(b["form"]):
             items = b.get("items", [""] * len(b["form"]))[i] or ""
-            keep = form in ("10-K/A", "10-Q/A", "CORRESP", "UPLOAD") or (form.startswith("8-K") and "4.02" in items)
+            keep = form in ("10-K/A", "10-Q/A", "CORRESP", "UPLOAD") or form.startswith("8-K")
             if not keep: continue
             acc = b["accessionNumber"][i]
             rows.append({"form": form, "filed": b["filingDate"][i], "items": items, "accession": acc,
+                         "accepted": (b.get("acceptanceDateTime") or [None] * len(b["form"]))[i],
                          "url": f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc.replace('-', '')}/{b['primaryDocument'][i]}"})
+    rows.sort(key=lambda r: r["filed"], reverse=True)
     return {"name": d["name"], "cik": int(cik), "sic": d.get("sic"), "sicDescription": d.get("sicDescription"),
-            "filings": sorted(rows, key=lambda r: r["filed"], reverse=True)}
+            "tickers": d.get("tickers") or [],
+            "filings": [r for r in rows if not r["form"].startswith("8-K") or "4.02" in r["items"]],
+            "eightks": [r for r in rows if r["form"].startswith("8-K")]}
 
 AAER_URL = "https://www.sec.gov/enforcement-litigation/accounting-auditing-enforcement-releases"
 def aaers(pages=33):

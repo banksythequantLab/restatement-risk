@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from rr import agent, sec
+from app import events_ui
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 ROOT = pathlib.Path(os.getenv("RR_ROOT", "/var/lib/rr")); STORE = ROOT / "results"; STORE.mkdir(parents=True, exist_ok=True)
 BACKTEST = pathlib.Path(__file__).resolve().parent.parent / "data" / "backtest.json"
@@ -147,6 +148,7 @@ def report_html(o):
     expl = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", expl)
     return f"""<h2>{e(o['name'])} <span class=muted>({e(o['ticker'])}, CIK {e(o['cik'])}, {e(o.get('sic'))})</span></h2>
 <p><a href="/c/{e(o['ticker'])}?fresh=1">re-run</a> &middot; <a href="/ask?t={e(o['ticker'])}">ask a question about this company</a></p>
+{events_ui.panel(o['cik'], o['ticker'], o['name'])}
 <div class=card><h3 style="margin-top:0">Explanation (model, from the reference numbers)</h3><div>{expl}</div>{fixes_html(o)}{CAVEAT}</div>
 <div class=grid><div class=card><h3 style="margin-top:0">Screens (fiscal year ending {e(ref['fiscal_year_ends'][0])})</h3>
 <p>Beneish M-score: <b>{num(b.get('m_score'))}</b> <span class=muted>(flag above −1.78; {e(b.get('status'))})</span><br>
@@ -211,15 +213,44 @@ def ask_post(t: str = Form(...), q: str = Form(...)):
     except KeyError: raise HTTPException(404, "unknown ticker")
     return RedirectResponse(f"/job/{start('ask', t, lambda log: agent.ask(t, q, log))}", 303)
 @app.get("/backtest", response_class=HTMLResponse)
-def backtest():
-    if not BACKTEST.exists(): return page("Backtest", "<div class=card>Not generated yet.</div>")
+def backtest(show: str = "operating"):
+    if not BACKTEST.exists(): return page("What happened", "<div class=card>Not generated yet.</div>")
     d = json.loads(BACKTEST.read_text())
-    rows = "".join(f"<tr><td>{e(r['notice_filed'])}</td><td>{e(r['name'])}</td><td>{e(r.get('ticker') or '')}</td><td>{e(r.get('fy_end'))}</td>"
-        f"<td class=num>{num(r.get('m_score'))}</td><td class=num>{num(r.get('f_score'))}</td><td class=num>{num(r.get('benford_mad'),4)}</td>"
-        f"<td>{'; '.join(e(x['date'])+' AAER-'+e(x['aaer']) for x in r.get('aaers_after') or []) or '—'}</td><td><a href='{e(r['url'])}' target=_blank rel=noopener>4.02</a></td></tr>" for r in d["rows"])
-    return page("What happened", f"""<div class=card><h2 style="margin-top:0">What happened next: Item 4.02 filers, 2021–2023</h2>
-<p>{e(d['method'])}</p><p><b>{e(d['summary'])}</b></p>{CAVEAT}<p class=muted>This is a small, descriptive sample. It is not a validation and supports no accuracy claim.</p>
-<table><tr><th>4.02 filed</th><th>Company</th><th>Ticker</th><th>Screened FY end</th><th class=num>M-score</th><th class=num>F-score</th><th class=num>Benford MAD</th><th>Later AAER (name match)</th><th></th></tr>{rows}</table></div>""")
+    if "operating" not in d: return page("What happened", "<div class=card>Being regenerated; check back shortly.</div>")
+    pc = lambda v: "—" if v is None else f"{v*100:+.1f}%"
+    def grp_html(lab, g):
+        sh = lambda v: "—" if v is None else f"{v*100:.0f}%"
+        w = "".join(f"<tr><td>{e(k)}</td><td class=num>{v['n']}</td><td class=num>{pc(v['median_adj'])}</td><td class=num>{sh(v['share_below_minus10'])}</td></tr>" for k, v in g["windows"].items())
+        mx = max([h["n"] for h in g["hist_0_5_adj"]] + [1])
+        hist = "".join(f"<tr><td>{'below ' + pc(h['hi']) if h['lo'] <= -1 else (pc(h['lo']) + ' or more' if h['hi'] > 9 else pc(h['lo']) + ' to ' + pc(h['hi']))}</td><td class=num>{h['n']}</td>"
+                       f"<td><div style='background:#14213d;height:12px;width:{300*h['n']/mx:.0f}px'></div></td></tr>" for h in g["hist_0_5_adj"])
+        NM = {"ok": "usable prices", "no_price_data": "no price data (delisted?)", "no_ticker": "no ticker found", "no_price_near_filing": "no price near the filing date", "no_acceptance_time": "no filing time"}
+        sc = "; ".join(f"{e(NM.get(k, k))}: {v}" for k, v in sorted(g["status_counts"].items(), key=lambda kv: -kv[1]))
+        return (f"<div class=card><h3 style='margin-top:0'>{e(lab)}: {g['n']} companies, {g['with_prices']} with usable prices</h3>"
+                f"<p class=muted>Coverage: {sc}.<br>{g['earnings_same_day']} of the priced notices had an earnings release (Item 2.02) in the notice or another 8-K the same day; without those, the median 0–5 move minus IWM is {pc(g.get('median_0_5_adj_no_earnings'))} (n={g.get('n_no_earnings')}).</p>"
+                f"<div class=grid><div><h4>Median move minus IWM</h4><table><tr><th>Window (trading days)</th><th class=num>n</th><th class=num>Median</th><th class=num>Share worse than −10%</th></tr>{w}</table>"
+                f"<p class=muted>Windows not yet complete are excluded.</p></div><div><h4>Distribution, day 0 to day 5, minus IWM</h4><table>{hist}</table></div></div>"
+                f"<p>Later AAER (name match): {g['aaer_after']} &middot; possible securities class-action disclosure in a later filing (verify): {g['litigation_disclosure']}</p></div>")
+    sel = [r for r in d["rows"] if (show == "all") or (r["spac"] == (show == "spac"))]
+    def mv(r, k):
+        s = r["stock"]
+        return pc(s["windows"][k]["adj"]) + ("*" if s["windows"][k]["partial"] else "") if s.get("status") == "ok" else ""
+    def lit(r):
+        x = r.get('litigation_disclosure')
+        return f"<a href='{e(x['url'])}' target=_blank rel=noopener title='{e(x['snippet'][:400])}'>possible, verify</a>" if x else ''
+    rows = "".join(f"<tr><td>{e(r['notice_filed'])}</td><td>{e(r['name'])}{' <span class=muted>(SPAC/shell)</span>' if r['spac'] else ''}</td>"
+        f"<td>{e(r['stock'].get('ticker') or '')}</td>"
+        f"<td>{'' if r['stock'].get('status') == 'ok' else '<span class=muted>' + e({'no_price_data': 'no price data (delisted?)', 'no_price_near_filing': 'no price near filing', 'no_ticker': 'no ticker', 'no_acceptance_time': 'no filing time'}.get(r['stock'].get('status'), r['stock'].get('status'))) + '</span>'}"
+        f"{' <b>earnings same day</b>' if r.get('earnings_same_day') else ''}</td>"
+        f"<td class=num>{mv(r, 0)}</td><td class=num>{mv(r, 2)}</td><td class=num>{mv(r, 3)}</td>"
+        f"<td>{'; '.join(e(x['date'])+' AAER-'+e(x['aaer']) for x in r.get('aaers_after') or []) or ''}</td>"
+        f"<td>{lit(r)}</td>"
+        f"<td><a href='{e(r['url'])}' target=_blank rel=noopener>4.02</a></td></tr>" for r in sel)
+    tabs = " &middot; ".join(f"<b>{l}</b>" if k == show else f"<a href='/backtest?show={k}'>{l}</a>" for k, l in [("operating", "operating companies"), ("spac", "SPACs/shells"), ("all", "all")])
+    return page("What happened", f"""<div class=card><h2 style="margin-top:0">Did the stock fall? Every Item 4.02 notice, 2021–2023</h2>
+<p>{e(d['method'])}</p>{CAVEAT}<p class=muted>Descriptive only. It does not predict anything and does not show the notice caused the move. Generated {e(d['generated'])}.</p></div>
+{grp_html('Operating companies', d['operating'])}{grp_html('SPACs and shells', d['spac'])}
+<div class=card><p>Show: {tabs}. * = window not complete yet.</p><table><tr><th>4.02 filed</th><th>Company</th><th>Ticker</th><th>Note</th><th class=num>Day 0</th><th class=num>0–5</th><th class=num>0–30</th><th>Later AAER</th><th>Securities suit disclosed</th><th></th></tr>{rows}</table></div>""")
 @app.get("/about", response_class=HTMLResponse)
 def about():
     return page("How it works", f"""<div class=card><h2 style="margin-top:0">How it works</h2><ol>
