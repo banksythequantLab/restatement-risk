@@ -134,7 +134,9 @@ def report_html(o):
     rf = "".join(f"<tr><td>{e(x['filed'])}</td><td>{e(x['form'])}</td><td>{e(x['items'])}</td><td><a href='{e(x['url'])}' target=_blank rel=noopener>open</a></td></tr>" for x in o["restatement_filings"][:30])
     cl = "".join(f"<tr><td>{e(x['filed'])}</td><td>{e(x['form'])}</td><td><a href='{e(x['url'])}' target=_blank rel=noopener>open</a></td></tr>" for x in o["comment_letters"][:30]) or "<tr><td colspan=3 class=muted>None on EDGAR for this company.</td></tr>"
     aa = "".join(f"<li>{e(x['date'])} — {e(x['name'])} — AAER-{e(x['aaer'])} <a href='{e(x['url'])}' target=_blank rel=noopener>release</a></li>" for x in o["aaer_name_matches"]) or "<li class=muted>No AAER whose respondent name matches this company (exact normalized name; individuals charged alone would not match).</li>"
-    xc = "".join(f"<tr><td>{e(x['metric'])}</td><td class=num>{num(x['reference'],4)}</td><td class=num>{num(x['model'],4)}</td><td class={'ok' if x['match'] else 'bad'}>{'match' if x['match'] else 'MISMATCH'}</td></tr>" for x in o["crosscheck"])
+    xc = "".join(f"<tr><td>{e(x['metric'])}</td><td class=num>{num(x['reference'],4)}</td><td class=num>{num(x['model'],4)}</td><td class={'ok' if x['match'] else 'bad'}>{xlabel(x)}</td></tr>" for x in o["crosscheck"])
+    nmiss = sum(1 for x in o["crosscheck"] if not x["match"] and x.get("model") is None)
+    mism_wrong = sum(1 for x in o["crosscheck"] if not x["match"] and x.get("model") is not None)
     mism = len(o.get("crosscheck_mismatches") or [])
     miss = []
     if b.get("status") == "insufficient_data": miss.append(f"M-score not computed — missing: {', '.join(set(b['missing']['current']+b['missing']['prior']))}")
@@ -154,7 +156,7 @@ Benford MAD: <b>{num(bf.get('mad'),4)}</b> <span class=muted>n={e(bf.get('n'))},
 {benford_svg(bf['observed']) if bf.get('observed') else ''}
 <h4>Missing-data notes</h4><ul>{''.join(f'<li>{e(m)}</li>' for m in miss) or '<li class=muted>none</li>'}</ul></div>
 <div class=card><h3 style="margin-top:0">Model's sandboxed calculation vs reference code</h3>
-<p>{'<span class=ok>All checks match.</span>' if not mism else f'<span class=bad>{mism} mismatch(es).</span> The reference numbers are used everywhere on this page.'}</p>
+<p>{'<span class=ok>All checks match.</span>' if not mism else f'<span class=bad>{mism} check(s) failed: {mism_wrong} wrong value(s), {nmiss} not reported by the model.</span> The reference numbers are used everywhere on this page.'}</p>
 <table><tr><th>Metric</th><th>Reference</th><th>Model</th><th></th></tr>{xc}</table></div></div>
 <div class=card><h3 style="margin-top:0">What changed between filings ({o['reference_delta_count']} line-item/periods, since 2022)</h3>
 <p class=muted>Original = earliest filed value for that period; restated = latest. Changes can be restatement, reclassification or recast — read the filings.</p>
@@ -163,6 +165,9 @@ Benford MAD: <b>{num(bf.get('mad'),4)}</b> <span class=muted>n={e(bf.get('n'))},
 <div class=card><h3 style="margin-top:0">SEC comment-letter correspondence (CORRESP / UPLOAD)</h3><p class=muted>Shows a filing review happened; content not summarized here.</p><table>{cl}</table>
 <h3>AAER (enforcement release) name match</h3><ul>{aa}</ul></div></div>
 <h3>Sandbox attempt log</h3>{attempts_html(o['attempts'])}"""
+def xlabel(x):
+    if x["match"]: return "match"
+    return "not reported by model" if x.get("model") is None else "MISMATCH (wrong value)"
 def fixes_html(o):
     f = o.get("name_fixes") or []
     return f"<div class=alert>Post-check corrected a wrong company name in the model's text: {e(', '.join(f))} → {e(o['name'])}.</div>" if f else ""
