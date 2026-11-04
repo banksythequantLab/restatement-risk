@@ -92,12 +92,14 @@ ASK = """You are a forensic-accounting analyst. Answer the user's question by wr
 """ + DATA_DESC + """
 Write a JSON object to /out/result.json with keys "answer" (short text), "table" (list of row dicts, optional) and
 "notes" (list of caveats/limitations). Print a short summary to stdout.
+Every number in the answer must be computed from /data. Do not state figures from memory (e.g. other companies' margins
+or industry averages); if the data is not in /data, say it is not available.
 Reply with exactly one ```python block and nothing else.
 
 Question: {q}"""
 ASK_EXPLAIN = """Company: {name} (ticker {ticker}, CIK {cik}); use exactly this name.
 Explain this result to a New York litigator in <=180 words. Plain. Say what the code actually computed and
-from which data, state limits honestly (if data needed was not available, say so). If the sandbox blocked anything, say
+from which data; flag any figure in the result that was not computed from the data files; state limits honestly (if data needed was not available, say so). If the sandbox blocked anything, say
 what happened. Do not overstate. The SEC does not "audit" companies; screens are not predictions.
 Question: {q}
 Attempts: {attempts}
