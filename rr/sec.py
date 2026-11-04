@@ -2,7 +2,8 @@
 import hashlib, json, pathlib, re, time, html
 import requests
 UA = "Derek Soltis dj@soltis.info"
-CACHE = pathlib.Path(__file__).resolve().parent.parent / "cache"
+import os
+CACHE = pathlib.Path(os.getenv("RR_CACHE", pathlib.Path(__file__).resolve().parent.parent / "cache"))
 _last = [0.0]
 def _get(url, ttl=86400, binary=False):
     CACHE.mkdir(exist_ok=True)

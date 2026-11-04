@@ -1,0 +1,768 @@
+{
+ "method": "All 1031 companies with an 8-K Item 4.02 notice filed 2021-2023 (EDGAR full-text search, first notice per company). Screens use numbers as first reported for the last fiscal year ending before the notice. AAER match = exact normalized company-name match against the SEC AAER list, release dated after the notice. Shown: every AAER-matched company plus a seeded random sample of 14 others that have tickers. An AAER may concern a different matter than the restatement; read the release.",
+ "summary": "20 of 1031 2021-2023 Item 4.02 filers have a later AAER naming the company (name match; misses possible).",
+ "n_filers": 1031,
+ "n_aaer": 20,
+ "rows": [
+  {
+   "cik": 1550603,
+   "name": "MALVERN BANCORP, INC.",
+   "ticker": null,
+   "notice_filed": "2021-01-20",
+   "url": "https://www.sec.gov/Archives/edgar/data/1550603/000156459021001630/mlvf-8k_20210114.htm",
+   "aaers_after": [
+    {
+     "date": "Aug. 15, 2023",
+     "aaer": 4441,
+     "name": "Malvern Bancorp, Inc. and Joseph D. Gangemi",
+     "url": "https://www.sec.gov/enforce/33-11223-s"
+    }
+   ],
+   "fy_end": "2020-09-30",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs",
+    "current_assets",
+    "current_liabilities",
+    "receivables",
+    "sga"
+   ],
+   "f_missing": [
+    "current_assets",
+    "current_liabilities",
+    "receivables"
+   ],
+   "f_score": null,
+   "benford_mad": 0.01799
+  },
+  {
+   "cik": 1084384,
+   "name": "PARETEUM Corp",
+   "ticker": null,
+   "notice_filed": "2021-03-08",
+   "url": "https://www.sec.gov/Archives/edgar/data/1084384/000110465921033360/tm218964d1_ex7-1.htm",
+   "aaers_after": [
+    {
+     "date": "Sept. 2, 2021",
+     "aaer": 4247,
+     "name": "Pareteum Corporation",
+     "url": "https://www.sec.gov/enforce/33-10975-s"
+    }
+   ],
+   "fy_end": "2020-12-31",
+   "m_score": -4.383,
+   "m_status": "ok_with_imputation",
+   "m_missing": [],
+   "f_missing": [],
+   "f_score": 0.344,
+   "benford_mad": 0.02455
+  },
+  {
+   "cik": 1093691,
+   "name": "PLUG POWER INC",
+   "ticker": "PLUG",
+   "notice_filed": "2021-03-16",
+   "url": "https://www.sec.gov/Archives/edgar/data/1093691/000110465921037184/tm219753d1_8k.htm",
+   "aaers_after": [
+    {
+     "date": "Aug. 30, 2023",
+     "aaer": 4452,
+     "name": "Plug Power Inc.",
+     "url": "https://www.sec.gov/enforce/34-98243-s"
+    }
+   ],
+   "fy_end": "2020-12-31",
+   "m_score": -8.832,
+   "m_status": "ok",
+   "m_missing": [],
+   "f_missing": [],
+   "f_score": 0.697,
+   "benford_mad": 0.01638
+  },
+  {
+   "cik": 1698991,
+   "name": "Accel Entertainment, Inc.",
+   "ticker": "ACEL",
+   "notice_filed": "2021-03-16",
+   "url": "https://www.sec.gov/Archives/edgar/data/1698991/000169899121000007/acel-20210314.htm",
+   "aaers_after": [],
+   "fy_end": "2020-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "receivables",
+    "sga"
+   ],
+   "f_missing": [
+    "receivables",
+    "total_liabilities"
+   ],
+   "f_score": null,
+   "benford_mad": 0.00726
+  },
+  {
+   "cik": 1821159,
+   "name": "Climate Change Crisis Real Impact I Acquisition Corp",
+   "ticker": "EVGO",
+   "notice_filed": "2021-04-29",
+   "url": "https://www.sec.gov/Archives/edgar/data/1821159/000121390021023605/ea140076-8k_climatechange.htm",
+   "aaers_after": [],
+   "fy_end": null,
+   "note": "no two pre-notice fiscal years in XBRL",
+   "benford_mad": null
+  },
+  {
+   "cik": 1809987,
+   "name": "GS Acquisition Holdings Corp II",
+   "ticker": "MIR",
+   "notice_filed": "2021-04-30",
+   "url": "https://www.sec.gov/Archives/edgar/data/1809987/000119312521142776/d179206d8k.htm",
+   "aaers_after": [],
+   "fy_end": "2020-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs",
+    "depreciation",
+    "ppe",
+    "receivables",
+    "revenue",
+    "sga"
+   ],
+   "f_missing": [
+    "ppe",
+    "prior2_net_income",
+    "prior2_total_assets",
+    "receivables",
+    "revenue"
+   ],
+   "f_score": null,
+   "benford_mad": null
+  },
+  {
+   "cik": 1819574,
+   "name": "Northern Star Acquisition Corp.",
+   "ticker": "BARK",
+   "notice_filed": "2021-05-03",
+   "url": "https://www.sec.gov/Archives/edgar/data/1819574/000119312521147267/d179978d8k.htm",
+   "aaers_after": [],
+   "fy_end": null,
+   "note": "no two pre-notice fiscal years in XBRL"
+  },
+  {
+   "cik": 1819516,
+   "name": "Aspirational Consumer Lifestyle Corp.",
+   "ticker": "UP",
+   "notice_filed": "2021-05-04",
+   "url": "https://www.sec.gov/Archives/edgar/data/1819516/000110465921060578/tm2114100d1_8k.htm",
+   "aaers_after": [],
+   "fy_end": null,
+   "note": "no two pre-notice fiscal years in XBRL",
+   "benford_mad": null
+  },
+  {
+   "cik": 1759546,
+   "name": "Lordstown Motors Corp.",
+   "ticker": "SNFI",
+   "notice_filed": "2021-05-11",
+   "url": "https://www.sec.gov/Archives/edgar/data/1759546/000110465921064530/tm2110489d2_8k.htm",
+   "aaers_after": [
+    {
+     "date": "Feb. 29, 2024",
+     "aaer": 4490,
+     "name": "Lordstown Motors Corp.",
+     "url": null
+    }
+   ],
+   "fy_end": "2020-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs",
+    "receivables",
+    "revenue",
+    "sga"
+   ],
+   "f_missing": [
+    "prior2_net_income",
+    "receivables",
+    "revenue"
+   ],
+   "f_score": null,
+   "benford_mad": 0.03652
+  },
+  {
+   "cik": 1774675,
+   "name": "Churchill Capital Corp II",
+   "ticker": "SKIL",
+   "notice_filed": "2021-05-11",
+   "url": "https://www.sec.gov/Archives/edgar/data/1774675/000110465921064184/tm2115530d1_8k.htm",
+   "aaers_after": [],
+   "fy_end": "2021-01-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cfo",
+    "cogs",
+    "depreciation",
+    "net_income",
+    "ppe",
+    "receivables",
+    "revenue",
+    "sga"
+   ],
+   "f_missing": [
+    "net_income",
+    "ppe",
+    "prior2_net_income",
+    "prior2_total_assets",
+    "receivables",
+    "revenue",
+    "total_liabilities"
+   ],
+   "f_score": null,
+   "benford_mad": null
+  },
+  {
+   "cik": 1832511,
+   "name": "Foresight Acquisition Corp.",
+   "ticker": "PIIIW",
+   "notice_filed": "2021-05-24",
+   "url": "https://www.sec.gov/Archives/edgar/data/1832511/000119312521170895/d49455d8k.htm",
+   "aaers_after": [],
+   "fy_end": null,
+   "note": "no two pre-notice fiscal years in XBRL"
+  },
+  {
+   "cik": 889348,
+   "name": "CPI AEROSTRUCTURES INC",
+   "ticker": "CVU",
+   "notice_filed": "2021-06-07",
+   "url": "https://www.sec.gov/Archives/edgar/data/889348/000138713121006373/cvu-8k_060421.htm",
+   "aaers_after": [
+    {
+     "date": "June 20, 2024",
+     "aaer": 4510,
+     "name": "CPI Aerostructures, Inc.",
+     "url": "https://www.sec.gov/enforce/ap-summary/34-100389-s"
+    }
+   ],
+   "fy_end": "2020-12-31",
+   "m_score": -3.032,
+   "m_status": "ok",
+   "m_missing": [],
+   "f_missing": [],
+   "f_score": 0.491,
+   "benford_mad": 0.01289
+  },
+  {
+   "cik": 1648428,
+   "name": "Sequential Brands Group, Inc.",
+   "ticker": null,
+   "notice_filed": "2021-07-26",
+   "url": "https://www.sec.gov/Archives/edgar/data/1648428/000110465921095916/tm2123230d1_8k.htm",
+   "aaers_after": [
+    {
+     "date": "Dec. 15, 2021",
+     "aaer": 4277,
+     "name": "Sequential Brands Group, Inc.",
+     "url": null
+    }
+   ],
+   "fy_end": "2020-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs",
+    "sga"
+   ],
+   "f_missing": [],
+   "f_score": 1.549,
+   "benford_mad": 0.02844
+  },
+  {
+   "cik": 1227654,
+   "name": "COMPASS MINERALS INTERNATIONAL INC",
+   "ticker": "CMP",
+   "notice_filed": "2021-08-05",
+   "url": "https://www.sec.gov/Archives/edgar/data/1227654/000122765421000185/cmp-20210804.htm",
+   "aaers_after": [
+    {
+     "date": "Sept. 23, 2022",
+     "aaer": 4340,
+     "name": "Compass Minerals International, Inc.",
+     "url": null
+    }
+   ],
+   "fy_end": "2019-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs"
+   ],
+   "f_missing": [
+    "total_liabilities"
+   ],
+   "f_score": null,
+   "benford_mad": 0.01734
+  },
+  {
+   "cik": 883107,
+   "name": "NANOPHASE TECHNOLOGIES Corp",
+   "ticker": "SLSN",
+   "notice_filed": "2021-08-16",
+   "url": "https://www.sec.gov/Archives/edgar/data/883107/000117184321005988/f8k_081621.htm",
+   "aaers_after": [],
+   "fy_end": "2020-12-31",
+   "m_score": -0.351,
+   "m_status": "ok_with_imputation",
+   "m_missing": [],
+   "f_missing": [
+    "total_liabilities"
+   ],
+   "f_score": null,
+   "benford_mad": 0.02108
+  },
+  {
+   "cik": 754811,
+   "name": "U S GLOBAL INVESTORS INC",
+   "ticker": "GROW",
+   "notice_filed": "2021-10-18",
+   "url": "https://www.sec.gov/Archives/edgar/data/754811/000118518521001489/usglobal20211018_8k.htm",
+   "aaers_after": [],
+   "fy_end": "2021-06-30",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs",
+    "receivables",
+    "sga"
+   ],
+   "f_missing": [
+    "receivables"
+   ],
+   "f_score": null,
+   "benford_mad": 0.02396
+  },
+  {
+   "cik": 1656472,
+   "name": "Cronos Group Inc.",
+   "ticker": "CRON",
+   "notice_filed": "2021-11-09",
+   "url": "https://www.sec.gov/Archives/edgar/data/1656472/000165647221000120/cron-20211109.htm",
+   "aaers_after": [
+    {
+     "date": "Oct. 24, 2022",
+     "aaer": 4357,
+     "name": "Cronos Group Inc.",
+     "url": null
+    }
+   ],
+   "fy_end": "2020-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs"
+   ],
+   "f_missing": [],
+   "f_score": 0.65,
+   "benford_mad": 0.01767
+  },
+  {
+   "cik": 837852,
+   "name": "IDEANOMICS, INC.",
+   "ticker": null,
+   "notice_filed": "2021-11-16",
+   "url": "https://www.sec.gov/Archives/edgar/data/837852/000110465921139669/tm2133104d1_8k.htm",
+   "aaers_after": [
+    {
+     "date": "Aug. 9, 2024",
+     "aaer": 4512,
+     "name": "Ideanomics, Inc. (f/k/a Seven Star Cloud Group, Inc., Alfred Poor, and Federico Tovar)",
+     "url": null
+    }
+   ],
+   "fy_end": "2020-12-31",
+   "m_score": 5.624,
+   "m_status": "ok",
+   "m_missing": [],
+   "f_missing": [],
+   "f_score": 0.318,
+   "benford_mad": 0.01277
+  },
+  {
+   "cik": 1851908,
+   "name": "Black Spade Acquisition Co",
+   "ticker": null,
+   "notice_filed": "2021-11-17",
+   "url": "https://www.sec.gov/Archives/edgar/data/1851908/000119312521332400/d416517d8k.htm",
+   "aaers_after": [
+    {
+     "date": "Aug. 22, 2023",
+     "aaer": 4443,
+     "name": "Black Spade Acquisition Co",
+     "url": "https://www.sec.gov/enforce/34-98192-s"
+    }
+   ],
+   "fy_end": null,
+   "note": "no two pre-notice fiscal years in XBRL"
+  },
+  {
+   "cik": 1833909,
+   "name": "African Gold Acquisition Corp",
+   "ticker": null,
+   "notice_filed": "2021-11-22",
+   "url": "https://www.sec.gov/Archives/edgar/data/1833909/000121390021061131/ea151197-8k_africangold.htm",
+   "aaers_after": [
+    {
+     "date": "Feb. 22, 2023",
+     "aaer": 4377,
+     "name": "African Gold Acquisition Corp.",
+     "url": null
+    }
+   ],
+   "fy_end": null,
+   "note": "no two pre-notice fiscal years in XBRL"
+  },
+  {
+   "cik": 1676852,
+   "name": "OMNIA WELLNESS INC.",
+   "ticker": null,
+   "notice_filed": "2021-11-29",
+   "url": "https://www.sec.gov/Archives/edgar/data/1676852/000149315221030038/form8-k.htm",
+   "aaers_after": [
+    {
+     "date": "Aug. 22, 2023",
+     "aaer": 4446,
+     "name": "Omnia Wellness Inc.",
+     "url": "https://www.sec.gov/enforce/34-98192-s"
+    }
+   ],
+   "fy_end": "2021-03-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs",
+    "current_assets",
+    "ppe",
+    "receivables",
+    "revenue",
+    "sga"
+   ],
+   "f_missing": [
+    "cash",
+    "current_assets",
+    "ppe",
+    "receivables",
+    "revenue"
+   ],
+   "f_score": null,
+   "benford_mad": null
+  },
+  {
+   "cik": 1841209,
+   "name": "Golden Path Acquisition Corp",
+   "ticker": "HOLOW",
+   "notice_filed": "2022-01-20",
+   "url": "https://www.sec.gov/Archives/edgar/data/1841209/000182912622001209/goldenpathacq_8k.htm",
+   "aaers_after": [],
+   "fy_end": "2021-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs",
+    "depreciation",
+    "ppe",
+    "receivables",
+    "revenue"
+   ],
+   "f_missing": [
+    "ppe",
+    "prior2_net_income",
+    "prior2_total_assets",
+    "receivables",
+    "revenue"
+   ],
+   "f_score": null
+  },
+  {
+   "cik": 93556,
+   "name": "STANLEY BLACK & DECKER, INC.",
+   "ticker": "SWK",
+   "notice_filed": "2022-01-26",
+   "url": "https://www.sec.gov/Archives/edgar/data/93556/000119312522018393/d303104d8k.htm",
+   "aaers_after": [
+    {
+     "date": "June 20, 2023",
+     "aaer": 4422,
+     "name": "Stanley Black & Decker, Inc.",
+     "url": null
+    }
+   ],
+   "fy_end": "2022-01-01",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "receivables"
+   ],
+   "f_missing": [
+    "receivables",
+    "total_liabilities"
+   ],
+   "f_score": null,
+   "benford_mad": 0.01462
+  },
+  {
+   "cik": 1735707,
+   "name": "Garrett Motion Inc.",
+   "ticker": "GTX",
+   "notice_filed": "2022-02-14",
+   "url": "https://www.sec.gov/Archives/edgar/data/1735707/000173570722000026/gtx-20220208.htm",
+   "aaers_after": [],
+   "fy_end": "2021-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "receivables"
+   ],
+   "f_missing": [
+    "receivables"
+   ],
+   "f_score": null,
+   "benford_mad": 0.01334
+  },
+  {
+   "cik": 1341766,
+   "name": "Celsius Holdings, Inc.",
+   "ticker": "CELH",
+   "notice_filed": "2022-03-01",
+   "url": "https://www.sec.gov/Archives/edgar/data/1341766/000182912622004840/celsiusholdings_8k.htm",
+   "aaers_after": [
+    {
+     "date": "Jan. 17, 2025",
+     "aaer": 4559,
+     "name": "Celsius Holdings, Inc.",
+     "url": "https://www.sec.gov/enforcement-litigation/administrative-proceedings/34-102227-s"
+    }
+   ],
+   "fy_end": "2021-12-31",
+   "m_score": 0.093,
+   "m_status": "ok_with_imputation",
+   "m_missing": [],
+   "f_missing": [],
+   "f_score": 12.429,
+   "benford_mad": 0.01817
+  },
+  {
+   "cik": 1703073,
+   "name": "VIVIC CORP.",
+   "ticker": "VIVC",
+   "notice_filed": "2022-06-01",
+   "url": "https://www.sec.gov/Archives/edgar/data/1703073/000154972722000052/vivcform8knonreliance.htm",
+   "aaers_after": [
+    {
+     "date": "Aug. 22, 2023",
+     "aaer": 4448,
+     "name": "Vivic Corp.",
+     "url": "https://www.sec.gov/enforce/34-98192-s"
+    }
+   ],
+   "fy_end": "2021-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "receivables",
+    "sga"
+   ],
+   "f_missing": [
+    "prior2_net_income",
+    "receivables"
+   ],
+   "f_score": null,
+   "benford_mad": 0.02807
+  },
+  {
+   "cik": 771999,
+   "name": "DSS, INC.",
+   "ticker": "DSS",
+   "notice_filed": "2022-08-12",
+   "url": "https://www.sec.gov/Archives/edgar/data/771999/000149315222022398/form8-k.htm",
+   "aaers_after": [],
+   "fy_end": "2021-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs"
+   ],
+   "f_missing": [
+    "total_liabilities"
+   ],
+   "f_score": null,
+   "benford_mad": 0.01854
+  },
+  {
+   "cik": 1606698,
+   "name": "ALPINE 4 HOLDINGS, INC.",
+   "ticker": null,
+   "notice_filed": "2022-11-18",
+   "url": "https://www.sec.gov/Archives/edgar/data/1606698/000162828022030385/alpp-20221114.htm",
+   "aaers_after": [
+    {
+     "date": "Aug. 22, 2023",
+     "aaer": 4444,
+     "name": "Alpine 4 Holdings, Inc.",
+     "url": "https://www.sec.gov/enforce/34-98192-s"
+    }
+   ],
+   "fy_end": "2021-12-31",
+   "m_score": -1.269,
+   "m_status": "ok_with_imputation",
+   "m_missing": [
+    "sga"
+   ],
+   "f_missing": [],
+   "f_score": 4.34,
+   "benford_mad": 0.01717
+  },
+  {
+   "cik": 1680873,
+   "name": "HF Foods Group Inc.",
+   "ticker": "HFFG",
+   "notice_filed": "2023-01-20",
+   "url": "https://www.sec.gov/Archives/edgar/data/1680873/000168087323000003/hffg-20230116.htm",
+   "aaers_after": [
+    {
+     "date": "June 6, 2024",
+     "aaer": 4506,
+     "name": "HF Foods Group Inc.",
+     "url": "https://www.sec.gov/enforce/ap-summary/33-11289-s"
+    }
+   ],
+   "fy_end": "2022-12-31",
+   "m_score": -2.483,
+   "m_status": "ok",
+   "m_missing": [],
+   "f_missing": [],
+   "f_score": 1.452,
+   "benford_mad": 0.01291
+  },
+  {
+   "cik": 884219,
+   "name": "VIAD CORP",
+   "ticker": "PRSU",
+   "notice_filed": "2023-02-09",
+   "url": "https://www.sec.gov/Archives/edgar/data/884219/000095017023002328/vvi-20230207.htm",
+   "aaers_after": [],
+   "fy_end": "2022-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs",
+    "sga"
+   ],
+   "f_missing": [],
+   "f_score": 0.848,
+   "benford_mad": 0.0092
+  },
+  {
+   "cik": 1422892,
+   "name": "Singularity Future Technology Ltd.",
+   "ticker": "SGLY",
+   "notice_filed": "2023-03-01",
+   "url": "https://www.sec.gov/Archives/edgar/data/1422892/000121390023015608/ea174443-8k_singular.htm",
+   "aaers_after": [
+    {
+     "date": "Jan. 17, 2025",
+     "aaer": 4557,
+     "name": "Singularity Future Technology, Ltd.",
+     "url": "https://www.sec.gov/enforcement-litigation/administrative-proceedings/34-102225-s"
+    }
+   ],
+   "fy_end": "2022-06-30",
+   "m_score": -7.437,
+   "m_status": "ok_with_imputation",
+   "m_missing": [
+    "sga"
+   ],
+   "f_missing": [],
+   "f_score": 0.316,
+   "benford_mad": 0.03372
+  },
+  {
+   "cik": 1427570,
+   "name": "ReShape Lifesciences Inc.",
+   "ticker": "HIND",
+   "notice_filed": "2023-04-13",
+   "url": "https://www.sec.gov/Archives/edgar/data/1427570/000155837023005893/rsls-20230407x8k.htm",
+   "aaers_after": [
+    {
+     "date": "Aug. 22, 2023",
+     "aaer": 4447,
+     "name": "ReShape Lifesciences Inc.",
+     "url": "https://www.sec.gov/enforce/34-98192-s"
+    }
+   ],
+   "fy_end": "2022-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "receivables"
+   ],
+   "f_missing": [
+    "receivables"
+   ],
+   "f_score": null,
+   "benford_mad": 0.01684
+  },
+  {
+   "cik": 896493,
+   "name": "Ault Alliance, Inc.",
+   "ticker": "GPUS-PD",
+   "notice_filed": "2023-04-14",
+   "url": "https://www.sec.gov/Archives/edgar/data/896493/000121465923005420/r4132328k.htm",
+   "aaers_after": [
+    {
+     "date": "Aug. 15, 2023",
+     "aaer": 4440,
+     "name": "Ault Alliance, et al.",
+     "url": "https://www.sec.gov/enforce/33-11222-s"
+    }
+   ],
+   "fy_end": "2022-12-31",
+   "m_score": -2.878,
+   "m_status": "ok_with_imputation",
+   "m_missing": [],
+   "f_missing": [],
+   "f_score": 0.56,
+   "benford_mad": 0.0137
+  },
+  {
+   "cik": 1391933,
+   "name": "QUAINT OAK BANCORP INC",
+   "ticker": "QNTO",
+   "notice_filed": "2023-12-15",
+   "url": "https://www.sec.gov/Archives/edgar/data/1391933/000092708923000159/qnto20231212_8k.htm",
+   "aaers_after": [],
+   "fy_end": "2022-12-31",
+   "m_score": null,
+   "m_status": "insufficient_data",
+   "m_missing": [
+    "cogs",
+    "current_assets",
+    "current_liabilities",
+    "receivables",
+    "revenue",
+    "sga"
+   ],
+   "f_missing": [
+    "current_assets",
+    "current_liabilities",
+    "receivables",
+    "revenue"
+   ],
+   "f_score": null,
+   "benford_mad": 0.03154
+  }
+ ]
+}

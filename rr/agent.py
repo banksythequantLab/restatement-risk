@@ -2,7 +2,8 @@
 -> cross-check against deterministic reference -> model explains with caveats."""
 import json, pathlib, re, sys, time
 from . import sec, xbrl, screens, llm, sandbox
-RUNS = pathlib.Path(__file__).resolve().parent.parent / "runs"
+import os
+RUNS = pathlib.Path(os.getenv("RR_ROOT", pathlib.Path(__file__).resolve().parent.parent)) / "runs"
 TASK = """You are a forensic-accounting analyst writing ONE Python 3.12 script (stdlib + numpy + pandas only).
 Data (read-only) is in /data:
 - /data/companyfacts.json : SEC XBRL companyfacts for {name} (CIK {cik}). Facts at facts['us-gaap'][TAG]['units']['USD'],
@@ -74,45 +75,91 @@ def crosscheck(model, ref, deltas_ref):
     out.append({"metric": "deltas (count)", "model": len(mk), "reference": len(rk), "match": len(mk) == len(rk) and not val_mis,
                 "only_model": len(set(mk) - set(rk)), "only_reference": len(set(rk) - set(mk)), "value_mismatches": len(val_mis)})
     return out
-NETWORK = re.compile(r"(Temporary failure in name resolution|Name or service not known|Network is unreachable|NewConnectionError|URLError|gaierror)")
-def analyse(ticker, log=print):
+NETWORK = re.compile(r"(ConnectionError|Errno -3|Errno 101|Temporary failure in name resolution|Name or service not known|Network is unreachable|NewConnectionError|URLError|gaierror)")
+DATA_DESC = """Data (read-only) is in /data:
+- /data/companyfacts.json : SEC XBRL companyfacts for {name} (CIK {cik}). Facts at facts['us-gaap'][TAG]['units']['USD'],
+  each fact has val, end, optional start (duration facts), fy, fp, form, filed, accn.
+- /data/filings.json : this company's 8-K Item 4.02 notices, 10-K/A, 10-Q/A, CORRESP, UPLOAD filings (form, filed, url).
+- /data/tag_map.json : line item -> ordered list of fallback XBRL tags."""
+ASK = """You are a forensic-accounting analyst. Answer the user's question by writing ONE Python 3.12 script
+(stdlib + numpy + pandas only).
+""" + DATA_DESC + """
+Write a JSON object to /out/result.json with keys "answer" (short text), "table" (list of row dicts, optional) and
+"notes" (list of caveats/limitations). Print a short summary to stdout.
+Reply with exactly one ```python block and nothing else.
+
+Question: {q}"""
+ASK_EXPLAIN = """Explain this result to a New York litigator in <=180 words. Plain. Say what the code actually computed and
+from which data, state limits honestly (if data needed was not available, say so). If the sandbox blocked anything, say
+what happened. Do not overstate. The SEC does not "audit" companies; screens are not predictions.
+Question: {q}
+Attempts: {attempts}
+Result: {result}"""
+def loop(job, msgs, run_dir, log, max_attempts=3):
+    """Model writes code -> runner executes in sandbox -> retry on error. Every attempt is logged, incl. no-code replies."""
+    attempts, result = [], None
+    for i in range(1, max_attempts + 1):
+        t0 = time.time(); reply = llm.chat(msgs); code = llm.code_block(reply)
+        a = {"attempt": i, "model_seconds": round(time.time() - t0, 1), "code": code}
+        if not code:
+            a.update(status="no_code", model_reply=reply[-3000:]); attempts.append(a); log(attempts)
+            msgs += [{"role": "assistant", "content": reply or "(empty)"}, {"role": "user", "content": "Reply with the full script in one ```python block."}]
+            continue
+        r = sandbox.run(job, code, i)
+        text = (r.get("stdout") or "") + (r.get("stderr") or "")
+        a.update({k: r.get(k) for k in ("container", "exit_code", "seconds", "timed_out", "oom_killed", "destroyed", "stdout", "stderr", "out_files")})
+        a["network_blocked"] = bool(NETWORK.search(text))
+        a["code_references_network"] = bool(re.search(r"^\s*(?:import|from)\s+[^\n]*\b(requests|urllib|http\.client|socket|httpx|aiohttp)\b", code, re.M))
+        ok = r.get("exit_code") == 0 and r.get("result") is not None
+        a["status"] = "ok" if ok else ("timeout" if r.get("timed_out") else "killed" if r.get("oom_killed") else "error")
+        if run_dir: (run_dir / f"attempt{i}.py").write_text(code)
+        attempts.append(a); log(attempts)
+        if ok: result = r["result"]; break
+        extra = " (killed: time or memory limit)" if r.get("timed_out") or r.get("oom_killed") else ""
+        if a["network_blocked"]: extra += " (the sandbox has no network access)"
+        err = ((r.get("stderr") or "") + "\n" + (r.get("stdout") or ""))[-2500:]
+        if not r.get("exit_code") and r.get("result") is None: err += "\n/out/result.json was not written or invalid."
+        msgs += [{"role": "assistant", "content": reply}, {"role": "user", "content": FIX.format(rc=r.get("exit_code"), extra=extra, err=err)}]
+    return attempts, result
+def prepare(ticker):
     c = sec.lookup(ticker); cik, name = c["cik"], c["name"]
-    run = RUNS / f"{ticker}-{time.strftime('%Y%m%d-%H%M%S')}"; data = run / "data"; data.mkdir(parents=True)
+    run = RUNS / f"{c['ticker']}-{time.strftime('%Y%m%d-%H%M%S')}-{os.urandom(2).hex()}"; data = run / "data"; data.mkdir(parents=True)
     cf = sec.companyfacts(cik); fl = sec.filings(cik)
     (data / "companyfacts.json").write_text(json.dumps(cf)); (data / "filings.json").write_text(json.dumps(fl))
     (data / "tag_map.json").write_text(json.dumps(xbrl.TAGS, indent=1))
-    ref = screens.run_all(cf); deltas_ref = xbrl.restatement_deltas(cf)
-    aaer = sec.aaer_matches(name)
-    ends = ref["fiscal_year_ends"]
-    log(f"[fetch] {name} CIK {cik}: companyfacts {len(json.dumps(cf))//1024} KB, {len(fl['filings'])} relevant filings, AAER name matches: {len(aaer)}")
-    job = sandbox.stage_data(data)
+    return c, cf, fl, run
+def analyse(ticker, log=lambda *_: None):
+    c, cf, fl, run = prepare(ticker); cik, name = c["cik"], c["name"]
+    ref = screens.run_all(cf); deltas_ref = xbrl.restatement_deltas(cf); aaer = sec.aaer_matches(name)
+    ends = ref.get("fiscal_year_ends", [])
+    if len(ends) < 2: return {"name": name, "cik": cik, "ticker": c["ticker"], "error": "fewer than two fiscal years of XBRL data"}
+    job = sandbox.stage_data(run / "data")
     msgs = [{"role": "user", "content": TASK.format(name=name, cik=cik, instant=sorted(xbrl.INSTANT), t=ends[0], p=ends[1], pp=ends[2] if len(ends) > 2 else "n/a")}]
-    attempts, result = [], None
-    for i in range(1, 4):
-        reply = llm.chat(msgs); code = llm.code_block(reply)
-        if not code:
-            attempts.append({"attempt": i, "exit_code": None, "error_tail": "model reply had no python block (not run)"})
-            log(f"[model] attempt {i}: no code block, asked again"); msgs += [{"role": "assistant", "content": reply}, {"role": "user", "content": "Reply with one ```python block."}]; continue
-        (run / f"attempt{i}.py").write_text(code)
-        r = sandbox.run(job, code, i)
-        net = bool(NETWORK.search(r["stdout"] + r["stderr"])); tried_net = bool(re.search(r"\b(requests|urllib|http\.client|socket)\b", code))
-        a = {k: r[k] for k in ("container", "exit_code", "seconds", "timed_out", "oom_or_killed", "destroyed")}
-        a.update(attempt=i, network_blocked=net, code_references_network=tried_net, error_tail=(r["stderr"] or r["stdout"])[-1500:] if r["exit_code"] else "")
-        attempts.append(a); log(f"[sandbox] attempt {i}: exit {r['exit_code']} in {r['seconds']}s, destroyed={r['destroyed']}, network_blocked={net}")
-        if r["exit_code"] == 0 and r["result"]: result = r["result"]; break
-        extra = " (killed: time or memory limit)" if r["oom_or_killed"] else ""
-        msgs += [{"role": "assistant", "content": reply}, {"role": "user", "content": FIX.format(rc=r["exit_code"], extra=extra, err=a["error_tail"])}]
-    sandbox.ssh(f"rm -rf {job}")
+    try: attempts, result = loop(job, msgs, run, lambda a: log({"stage": "sandbox", "attempts": a}))
+    finally: sandbox.cleanup(job)
     xc = crosscheck(result, ref, deltas_ref) if result else []
     mism = [x for x in xc if not x["match"]]
-    summary = {"name": name, "cik": cik, "fiscal_year_ends": ends,
-               "restatement_filings": [f for f in fl["filings"] if f["form"] != "CORRESP" and f["form"] != "UPLOAD"][:10],
-               "comment_letters_since_2024": [f for f in fl["filings"] if f["form"] in ("CORRESP", "UPLOAD") and f["filed"] >= "2024-01-01"],
-               "aaer_name_matches": aaer, "reference": ref, "reference_deltas_top": deltas_ref[:15], "reference_delta_count": len(deltas_ref),
+    summary = {"name": name, "cik": cik, "ticker": c["ticker"], "sic": fl.get("sicDescription"), "fiscal_year_ends": ends,
+               "restatement_filings": [f for f in fl["filings"] if f["form"] not in ("CORRESP", "UPLOAD")],
+               "comment_letters": [f for f in fl["filings"] if f["form"] in ("CORRESP", "UPLOAD")],
+               "aaer_name_matches": aaer, "reference": ref, "reference_deltas": deltas_ref, "reference_delta_count": len(deltas_ref),
                "crosscheck_mismatches": mism}
-    expl = llm.chat([{"role": "user", "content": EXPLAIN.format(name=name, data=json.dumps(summary, default=str)[:60000])}], 6000)
-    out = {**summary, "attempts": attempts, "model_result_keys": sorted(result) if result else None, "crosscheck": xc, "explanation": expl}
-    (run / "report.json").write_text(json.dumps(out, indent=1, default=str)); (run / "model_result.json").write_text(json.dumps(result, indent=1, default=str))
+    log({"stage": "explaining", "attempts": attempts})
+    slim = dict(summary, reference_deltas=deltas_ref[:15], comment_letters=[f for f in summary["comment_letters"] if f["filed"] >= "2024-01-01"],
+                restatement_filings=summary["restatement_filings"][:12])
+    expl = llm.chat([{"role": "user", "content": EXPLAIN.format(name=name, data=json.dumps(slim, default=str)[:60000])}], 6000)
+    out = {**summary, "attempts": attempts, "model_result": result, "crosscheck": xc, "explanation": expl}
+    (run / "report.json").write_text(json.dumps(out, indent=1, default=str))
     return out
-if __name__ == "__main__":
-    o = analyse(sys.argv[1]); print(json.dumps({k: o[k] for k in ("attempts", "crosscheck")}, indent=1, default=str)); print(o["explanation"])
+def ask(ticker, question, log=lambda *_: None):
+    c, cf, fl, run = prepare(ticker)
+    job = sandbox.stage_data(run / "data")
+    msgs = [{"role": "user", "content": ASK.format(name=c["name"], cik=c["cik"], q=question)}]
+    try: attempts, result = loop(job, msgs, run, lambda a: log({"stage": "sandbox", "attempts": a}))
+    finally: sandbox.cleanup(job)
+    log({"stage": "explaining", "attempts": attempts})
+    slim = [{k: a.get(k) for k in ("attempt", "status", "exit_code", "network_blocked", "timed_out")} | {"err": (a.get("stderr") or "")[-400:]} for a in attempts]
+    expl = llm.chat([{"role": "user", "content": ASK_EXPLAIN.format(q=question, attempts=json.dumps(slim), result=json.dumps(result, default=str)[:20000])}])
+    out = {"ticker": c["ticker"], "name": c["name"], "question": question, "attempts": attempts, "result": result, "explanation": expl}
+    (run / "ask.json").write_text(json.dumps(out, indent=1, default=str))
+    return out

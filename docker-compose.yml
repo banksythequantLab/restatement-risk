@@ -1,0 +1,35 @@
+# Separate compose project ("rr") next to Prove-It on the same VM. Public traffic arrives via the existing Caddy
+# (prove-it_web network) at a separate hostname; this project publishes no ports.
+name: rr
+services:
+  sandbox-image:            # builds the per-attempt sandbox image only; exits immediately
+    build: ./sandbox
+    image: rr-sandbox:latest
+    entrypoint: ["true"]
+    network_mode: none
+  app:                      # holds the inference key, NOT the docker socket
+    build: .
+    restart: unless-stopped
+    env_file: .env          # root-owned 0600 on the VM
+    environment:
+      - SANDBOX_RUNNER_URL=http://runner:9000
+    volumes:
+      - /var/lib/rr:/var/lib/rr
+    networks:
+      web:
+        aliases: [rr-app]
+      internal: {}
+    depends_on: [runner]
+  runner:                   # only holder of the docker socket; internal network, no published port, no secrets
+    build: ./runner
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/rr/jobs:/var/lib/rr/jobs
+    networks: [internal]
+networks:
+  web:
+    external: true
+    name: prove-it_web
+  internal:
+    internal: true
