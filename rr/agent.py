@@ -8,7 +8,9 @@ TASK = """You are a forensic-accounting analyst writing ONE Python 3.12 script (
 Data (read-only) is in /data:
 - /data/companyfacts.json : SEC XBRL companyfacts for {name} (CIK {cik}). Facts at facts['us-gaap'][TAG]['units']['USD'],
   each fact has val, end, optional start (duration facts), fy, fp, form, filed, accn.
-- /data/filings.json : this company's 8-K Item 4.02 notices, 10-K/A, 10-Q/A, CORRESP, UPLOAD filings.
+- /data/filings.json : a JSON OBJECT; the list of this company's 8-K Item 4.02 notices, 10-K/A, 10-Q/A, CORRESP, UPLOAD
+  filings is under key "filings" (each: form, filed, url, items).
+- /data/available_tags.json : per line item, the fallback tags that actually have USD facts here.
 - /data/tag_map.json : line item -> ordered list of fallback XBRL tags (use the first tag that has a value for the period;
   'A+B' means sum of tags A and B from the same filing). Instant items: {instant}.
 Write results to /out/result.json. Fiscal years to analyse: current year ending {t}, prior {p}, prior-2 {pp}
@@ -52,7 +54,7 @@ EXPLAIN = """You are explaining results to a New York litigator. Be plain and sh
 - CORRESP/UPLOAD filings show that a filing review happened; do not call a review "active" or assume it concerns
   the restatement unless dates/content show it.
 - If the cross-check found mismatches, say the reference numbers are used and why.
-Company: {name}. Data (reference values are authoritative):
+Company: {name} (ticker {ticker}, CIK {cik}). Use exactly this name. Data (reference values are authoritative):
 {data}"""
 def close(a, b, tol=0.02):
     if a is None or b is None: return a is None and b is None
@@ -79,8 +81,12 @@ NETWORK = re.compile(r"(ConnectionError|Errno -3|Errno 101|Temporary failure in 
 DATA_DESC = """Data (read-only) is in /data:
 - /data/companyfacts.json : SEC XBRL companyfacts for {name} (CIK {cik}). Facts at facts['us-gaap'][TAG]['units']['USD'],
   each fact has val, end, optional start (duration facts), fy, fp, form, filed, accn.
-- /data/filings.json : this company's 8-K Item 4.02 notices, 10-K/A, 10-Q/A, CORRESP, UPLOAD filings (form, filed, url).
-- /data/tag_map.json : line item -> ordered list of fallback XBRL tags."""
+- /data/filings.json : a JSON OBJECT; the list of this company's 8-K Item 4.02 notices, 10-K/A, 10-Q/A, CORRESP, UPLOAD
+  filings is under key "filings" (each: form, filed, url, items). Metadata only, no document text.
+- /data/tag_map.json : line item -> ordered list of fallback XBRL tags. Try every fallback tag in order.
+- /data/available_tags.json : for each line item, the fallback tags that ACTUALLY have USD facts in this company's file
+  (with fact counts). Use these before concluding data is missing.
+The company is {name}, ticker {ticker}, CIK {cik}. Use exactly this name; do not guess any other company name."""
 ASK = """You are a forensic-accounting analyst. Answer the user's question by writing ONE Python 3.12 script
 (stdlib + numpy + pandas only).
 """ + DATA_DESC + """
@@ -89,7 +95,8 @@ Write a JSON object to /out/result.json with keys "answer" (short text), "table"
 Reply with exactly one ```python block and nothing else.
 
 Question: {q}"""
-ASK_EXPLAIN = """Explain this result to a New York litigator in <=180 words. Plain. Say what the code actually computed and
+ASK_EXPLAIN = """Company: {name} (ticker {ticker}, CIK {cik}); use exactly this name.
+Explain this result to a New York litigator in <=180 words. Plain. Say what the code actually computed and
 from which data, state limits honestly (if data needed was not available, say so). If the sandbox blocked anything, say
 what happened. Do not overstate. The SEC does not "audit" companies; screens are not predictions.
 Question: {q}
@@ -108,7 +115,10 @@ def loop(job, msgs, run_dir, log, max_attempts=3):
         r = sandbox.run(job, code, i)
         text = (r.get("stdout") or "") + (r.get("stderr") or "") + json.dumps(r.get("result"), default=str)  # caught errors land in result.json
         a.update({k: r.get(k) for k in ("container", "exit_code", "seconds", "timed_out", "oom_killed", "destroyed", "stdout", "stderr", "out_files")})
-        a["network_blocked"] = bool(NETWORK.search(text))
+        a["netlog"] = r.get("netlog") or []
+        a["network_error_seen"] = bool(NETWORK.search(text))
+        a["network_attempted"] = bool(a["netlog"]) or a["network_error_seen"]
+        a["network_blocked"] = a["network_attempted"]  # container has no network: any attempt is a blocked attempt
         a["code_references_network"] = bool(re.search(r"^\s*(?:import|from)\s+[^\n]*\b(requests|urllib|http\.client|socket|httpx|aiohttp)\b", code, re.M))
         ok = r.get("exit_code") == 0 and r.get("result") is not None
         a["status"] = "ok" if ok else ("timeout" if r.get("timed_out") else "killed" if r.get("oom_killed") else "error")
@@ -121,12 +131,31 @@ def loop(job, msgs, run_dir, log, max_attempts=3):
         if not r.get("exit_code") and r.get("result") is None: err += "\n/out/result.json was not written or invalid."
         msgs += [{"role": "assistant", "content": reply}, {"role": "user", "content": FIX.format(rc=r.get("exit_code"), extra=extra, err=err)}]
     return attempts, result
+def available_tags(cf):
+    g = (cf.get("facts") or {}).get("us-gaap") or {}
+    return {item: {t: len((g.get(t) or {}).get("units", {}).get("USD", [])) for t in tags if (g.get(t) or {}).get("units", {}).get("USD")}
+            for item, tags in xbrl.TAGS.items()}
+_STOP = {"inc", "corp", "corporation", "co", "company", "the", "holdings", "group", "ltd", "plc", "llc", "lp", "sa", "nv", "and"}
+def _tok(s): return {w for w in re.findall(r"[a-z0-9]+", (s or "").lower()) if w not in _STOP}
+def check_names(text, name, cik):
+    """Deterministic post-check: any 'X (CIK n)' where n is this company's CIK but X shares no word with the official
+    name is replaced by the official name and reported."""
+    fixes = []
+    def sub(m):
+        cand, c = m.group(1).strip(), int(m.group(2))
+        if c == int(cik) and _tok(cand) and not (_tok(cand) & _tok(name)):
+            fixes.append(cand); return f"{name} (CIK {m.group(2)})"
+        return m.group(0)
+    pat = r"((?:[A-Z][\w&.'-]*)(?:,?\s+(?:[A-Z][\w&.'-]*|of|and|at|&))*)\s*\(CIK\s*(\d+)\)"
+    text = re.sub(pat, sub, text or "")
+    return text, fixes
 def prepare(ticker):
     c = sec.lookup(ticker); cik, name = c["cik"], c["name"]
     run = RUNS / f"{c['ticker']}-{time.strftime('%Y%m%d-%H%M%S')}-{os.urandom(2).hex()}"; data = run / "data"; data.mkdir(parents=True)
     cf = sec.companyfacts(cik); fl = sec.filings(cik)
     (data / "companyfacts.json").write_text(json.dumps(cf)); (data / "filings.json").write_text(json.dumps(fl))
     (data / "tag_map.json").write_text(json.dumps(xbrl.TAGS, indent=1))
+    (data / "available_tags.json").write_text(json.dumps(available_tags(cf), indent=1))
     return c, cf, fl, run
 def analyse(ticker, log=lambda *_: None):
     c, cf, fl, run = prepare(ticker); cik, name = c["cik"], c["name"]
@@ -134,7 +163,7 @@ def analyse(ticker, log=lambda *_: None):
     ends = ref.get("fiscal_year_ends", [])
     if len(ends) < 2: return {"name": name, "cik": cik, "ticker": c["ticker"], "error": "fewer than two fiscal years of XBRL data"}
     job = sandbox.stage_data(run / "data")
-    msgs = [{"role": "user", "content": TASK.format(name=name, cik=cik, instant=sorted(xbrl.INSTANT), t=ends[0], p=ends[1], pp=ends[2] if len(ends) > 2 else "n/a")}]
+    msgs = [{"role": "user", "content": TASK.format(name=name, cik=cik, ticker=c["ticker"], instant=sorted(xbrl.INSTANT), t=ends[0], p=ends[1], pp=ends[2] if len(ends) > 2 else "n/a")}]
     try: attempts, result = loop(job, msgs, run, lambda a: log({"stage": "sandbox", "attempts": a}))
     finally: sandbox.cleanup(job)
     xc = crosscheck(result, ref, deltas_ref) if result else []
@@ -147,19 +176,22 @@ def analyse(ticker, log=lambda *_: None):
     log({"stage": "explaining", "attempts": attempts})
     slim = dict(summary, reference_deltas=deltas_ref[:15], comment_letters=[f for f in summary["comment_letters"] if f["filed"] >= "2024-01-01"],
                 restatement_filings=summary["restatement_filings"][:12])
-    expl = llm.chat([{"role": "user", "content": EXPLAIN.format(name=name, data=json.dumps(slim, default=str)[:60000])}], 6000)
-    out = {**summary, "attempts": attempts, "model_result": result, "crosscheck": xc, "explanation": expl}
+    expl = llm.chat([{"role": "user", "content": EXPLAIN.format(name=name, ticker=c["ticker"], cik=cik, data=json.dumps(slim, default=str)[:60000])}], 6000)
+    expl, fixes = check_names(expl, name, cik)
+    out = {**summary, "attempts": attempts, "model_result": result, "crosscheck": xc, "explanation": expl, "name_fixes": fixes}
     (run / "report.json").write_text(json.dumps(out, indent=1, default=str))
     return out
 def ask(ticker, question, log=lambda *_: None):
     c, cf, fl, run = prepare(ticker)
     job = sandbox.stage_data(run / "data")
-    msgs = [{"role": "user", "content": ASK.format(name=c["name"], cik=c["cik"], q=question)}]
+    msgs = [{"role": "user", "content": ASK.format(name=c["name"], cik=c["cik"], ticker=c["ticker"], q=question)}]
     try: attempts, result = loop(job, msgs, run, lambda a: log({"stage": "sandbox", "attempts": a}))
     finally: sandbox.cleanup(job)
     log({"stage": "explaining", "attempts": attempts})
-    slim = [{k: a.get(k) for k in ("attempt", "status", "exit_code", "network_blocked", "timed_out")} | {"err": (a.get("stderr") or "")[-400:]} for a in attempts]
-    expl = llm.chat([{"role": "user", "content": ASK_EXPLAIN.format(q=question, attempts=json.dumps(slim), result=json.dumps(result, default=str)[:20000])}])
-    out = {"ticker": c["ticker"], "name": c["name"], "question": question, "attempts": attempts, "result": result, "explanation": expl}
+    slim = [{k: a.get(k) for k in ("attempt", "status", "exit_code", "network_blocked", "timed_out", "netlog")} | {"err": (a.get("stderr") or "")[-400:]} for a in attempts]
+    expl = llm.chat([{"role": "user", "content": ASK_EXPLAIN.format(name=c["name"], ticker=c["ticker"], cik=c["cik"], q=question, attempts=json.dumps(slim), result=json.dumps(result, default=str)[:20000])}])
+    expl, fixes = check_names(expl, c["name"], c["cik"])
+    out = {"ticker": c["ticker"], "name": c["name"], "question": question, "attempts": attempts, "result": result,
+           "explanation": expl, "name_fixes": fixes, "network_attempted": any(a.get("network_attempted") for a in attempts)}
     (run / "ask.json").write_text(json.dumps(out, indent=1, default=str))
     return out

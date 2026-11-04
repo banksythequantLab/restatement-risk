@@ -43,3 +43,22 @@ def test_network_import_detected_in_multi_import():
     src = open(agent.__file__).read()
     pat = re.search(r're\.search\((r"\^.*?")', src).group(1)
     assert re.search(eval(pat), "import json, re, html, urllib.request, pathlib", re.M)
+def test_name_postcheck_fixes_wrong_name():
+    t, f = agent.check_names("the most recent 10-K/A for Pets at Home (CIK 1040130).", "PETMED EXPRESS INC", 1040130)
+    assert f == ["Pets at Home"] and "PETMED EXPRESS INC (CIK 1040130)" in t
+    t2, f2 = agent.check_names("GoPro, Inc. (CIK 1500435) filed", "GoPro, Inc.", 1500435)
+    assert f2 == [] and t2.startswith("GoPro")
+def test_available_tags_lists_present_fallbacks():
+    cf = cf_with(RevenueFromContractWithCustomerExcludingAssessedTax=[fact(1, "2025-12-31", "2026-02-01", "10-K", "2025-01-01")])
+    assert "RevenueFromContractWithCustomerExcludingAssessedTax" in agent.available_tags(cf)["revenue"]
+def test_sitecustomize_logs_network_attempt(tmp_path):
+    import subprocess, textwrap
+    sc = pathlib.Path(__file__).resolve().parent.parent / "sandbox" / "sitecustomize.py"
+    code = textwrap.dedent(f"""
+        import sys; exec(open({str(sc)!r}).read().replace('/out/.netlog', {str(tmp_path / '.netlog')!r}))
+        import socket
+        try: socket.getaddrinfo('www.sec.gov.invalid', 443)
+        except Exception: pass
+    """)
+    subprocess.run([sys.executable, "-c", code], check=True)
+    assert "socket.getaddrinfo" in (tmp_path / ".netlog").read_text()

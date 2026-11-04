@@ -19,6 +19,11 @@ def run(job, code, attempt):
     if res.is_file() and res.stat().st_size < 5_000_000:
         try: r["result"] = json.loads(res.read_text())
         except ValueError: r["result_error"] = "result.json is not valid JSON"
+    nl = a / "out" / ".netlog"; r["netlog"] = []
+    if nl.is_file():
+        for line in nl.read_text(errors="replace").splitlines()[:200]:
+            try: r["netlog"].append(json.loads(line))
+            except ValueError: r["netlog"].append({"event": "unparsed", "target": line[:200]})
     r["out_files"] = sorted(p.name for p in (a / "out").iterdir())
     return r
 def cleanup(job): shutil.rmtree(JOBS / job, ignore_errors=True)

@@ -94,7 +94,11 @@ def attempts_html(attempts):
             out.append(f"<div class=card>{head} — model replied without code; asked again.<details><summary>reply</summary><pre>{e(a.get('model_reply'))}</pre></details></div>"); continue
         alert = ""
         if a.get("network_blocked"):
-            alert = "<div class='alert net'><b>Contained: the model's code tried to reach the network and the sandbox blocked it</b> (container started with <code>--network none</code>). The error was fed back to the model.</div>"
+            nl = a.get("netlog") or []
+            ev = "".join(f"<li><code>{e(x.get('event'))}</code> {e(x.get('target'))}</li>" for x in nl[:8])
+            src = "recorded inside the sandbox by an audit hook" if nl else "seen in the script's output"
+            alert = (f"<div class='alert net'><b>Contained: the model's code tried to reach the network and the sandbox blocked it</b> "
+                     f"(container started with <code>--network none</code>; attempt {src}). It was never told to use the network.<ul>{ev}</ul></div>")
         elif a.get("timed_out"): alert = "<div class=alert><b>Contained: time limit hit</b> — container killed and removed.</div>"
         elif a.get("oom_killed"): alert = "<div class=alert><b>Contained: memory limit (512 MB) hit</b> — container killed.</div>"
         out.append(f"""<div class="{cls}">{head} &middot; exit {e(a.get('exit_code'))} &middot; {e(a.get('seconds'))}s in sandbox &middot;
@@ -141,7 +145,7 @@ def report_html(o):
     expl = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", expl)
     return f"""<h2>{e(o['name'])} <span class=muted>({e(o['ticker'])}, CIK {e(o['cik'])}, {e(o.get('sic'))})</span></h2>
 <p><a href="/c/{e(o['ticker'])}?fresh=1">re-run</a> &middot; <a href="/ask?t={e(o['ticker'])}">ask a question about this company</a></p>
-<div class=card><h3 style="margin-top:0">Explanation (model, from the reference numbers)</h3><div>{expl}</div>{CAVEAT}</div>
+<div class=card><h3 style="margin-top:0">Explanation (model, from the reference numbers)</h3><div>{expl}</div>{fixes_html(o)}{CAVEAT}</div>
 <div class=grid><div class=card><h3 style="margin-top:0">Screens (fiscal year ending {e(ref['fiscal_year_ends'][0])})</h3>
 <p>Beneish M-score: <b>{num(b.get('m_score'))}</b> <span class=muted>(flag above −1.78; {e(b.get('status'))})</span><br>
 Same screen on numbers as first reported: {num((ref.get('beneish_original_numbers') or {}).get('m_score'))}<br>
@@ -159,18 +163,21 @@ Benford MAD: <b>{num(bf.get('mad'),4)}</b> <span class=muted>n={e(bf.get('n'))},
 <div class=card><h3 style="margin-top:0">SEC comment-letter correspondence (CORRESP / UPLOAD)</h3><p class=muted>Shows a filing review happened; content not summarized here.</p><table>{cl}</table>
 <h3>AAER (enforcement release) name match</h3><ul>{aa}</ul></div></div>
 <h3>Sandbox attempt log</h3>{attempts_html(o['attempts'])}"""
+def fixes_html(o):
+    f = o.get("name_fixes") or []
+    return f"<div class=alert>Post-check corrected a wrong company name in the model's text: {e(', '.join(f))} → {e(o['name'])}.</div>" if f else ""
 def ask_html(o):
     r = o.get("result") or {}; tb = r.get("table") or []
     t = ""
     if tb and isinstance(tb, list) and isinstance(tb[0], dict):
         cols = list(tb[0])[:10]
         t = "<table><tr>" + "".join(f"<th>{e(c)}</th>" for c in cols) + "</tr>" + "".join("<tr>" + "".join(f"<td>{e(row.get(c))}</td>" for c in cols) + "</tr>" for row in tb[:80]) + "</table>"
-    net = any(a.get("network_blocked") for a in o["attempts"])
+    net = any(a.get("network_blocked") or a.get("network_attempted") for a in o["attempts"])
     expl = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", e(o["explanation"]).replace("\n", "<br>"))
     return f"""<h2>{e(o['name'])} ({e(o['ticker'])})</h2><div class=card><b>Question:</b> {e(o['question'])}</div>
 {"<div class='alert net'><b>Containment event in this run:</b> the model's code tried to use the network; the sandbox has none. See the attempt log.</div>" if net else ""}
 <div class=card><h3 style="margin-top:0">Answer</h3><p>{e(r.get('answer'))}</p>{t}<ul>{''.join(f'<li>{e(n)}</li>' for n in (r.get('notes') or []))}</ul>
-<h4>Explanation</h4><div>{expl}</div>{CAVEAT}</div><h3>Attempt log</h3>{attempts_html(o['attempts'])}"""
+<h4>Explanation</h4><div>{expl}</div>{fixes_html(o)}{CAVEAT}</div><h3>Attempt log</h3>{attempts_html(o['attempts'])}"""
 @app.get("/r/{rid}", response_class=HTMLResponse)
 def result(rid: str):
     if not re.fullmatch(r"[0-9a-f]{12}", rid) or not (STORE / f"{rid}.json").exists(): raise HTTPException(404)
