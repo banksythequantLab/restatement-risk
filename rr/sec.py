@@ -33,7 +33,7 @@ def recent_402(start="2025-01-01", end=None, pages=3):
     """Item 4.02 (non-reliance) 8-K/8-K/A filers via EDGAR full-text search."""
     end = end or time.strftime("%Y-%m-%d"); out = {}
     for i in range(pages):
-        d = get_json(f"https://efts.sec.gov/LATEST/search-index?q=%22Item%204.02%22&forms=8-K,8-K/A"
+        d = get_json(f"https://efts.sec.gov/LATEST/search-index?q=%22Item%204.02%22&forms=8-K"
                      f"&dateRange=custom&startdt={start}&enddt={end}&from={i*100}", ttl=6 * 3600)
         for h in d["hits"]["hits"]:
             s = h["_source"]
