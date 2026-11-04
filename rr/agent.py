@@ -105,7 +105,7 @@ def loop(job, msgs, run_dir, log, max_attempts=3):
             a.update(status="no_code", model_reply=reply[-3000:]); attempts.append(a); log(attempts)
             msgs += [{"role": "assistant", "content": reply or "(empty)"}, {"role": "user", "content": "Reply with the full script in one ```python block."}]
             continue
-        r = sandbox.run(job, code, i)
+        text = (r.get("stdout") or "") + (r.get("stderr") or "") + json.dumps(r.get("result"), default=str)  # caught errors land in result.json
         text = (r.get("stdout") or "") + (r.get("stderr") or "")
         a.update({k: r.get(k) for k in ("container", "exit_code", "seconds", "timed_out", "oom_killed", "destroyed", "stdout", "stderr", "out_files")})
         a["network_blocked"] = bool(NETWORK.search(text))
