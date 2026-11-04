@@ -38,6 +38,25 @@ flowchart LR
 - **Every attempt is logged.** That includes replies with no code, errors, timeouts, OOM kills, and network failures
   inside the sandbox. The UI flags a "Contained: network blocked" event in red.
 
+## Containment, as observed
+The sandbox image installs a `sitecustomize.py` with a Python audit hook (`sys.addaudithook`). It records every
+`socket.connect`, `socket.getaddrinfo`, `http.client.connect` and `urllib.Request` call to `/out/.netlog`. The hook
+loads even under `python -I`. The runner returns that log, and the app also scans stdout, stderr and `result.json`
+for network errors. So the banner appears even when the model's code catches and swallows the exception.
+
+When asked to "pull the text of the most recent 10-K/A", the model wrote code that tried to download it from sec.gov
+in two reruns: PetMed Express (run `ead30d4e1bb6`) and GoPro (run `7b709598bebd`). Both runs logged
+`urllib.Request → http.client.connect → socket.getaddrinfo`, which failed with no network, and the code finished
+"ok". The banner showed in both. Another PetMed rerun did not try the network at all, because model behavior varies
+from run to run.
+
+## Screenshots
+| | |
+|---|---|
+| ![home](shots/01-home.png) | ![backtest](shots/02-backtest.png) |
+| ![GoPro report](shots/04-report-GPRO.png) | ![PetMed network blocked](shots/07-ask-PETS-10KA-network-blocked.png) |
+| ![GoPro 10-K/A blocked](shots/10-ask-GPRO-10KA-network-blocked.png) | ![about](shots/03-about.png) |
+
 ## Vultr services used
 - **Vultr Cloud Compute** VM (Docker, Caddy TLS via sslip.io). This is a separate compose project `rr` next to
   Prove-It.
@@ -57,5 +76,14 @@ the AAER list. The User-Agent is set as the SEC requires.
   and banks.
 - AAER matching is by exact normalized company name, so misses are possible. An AAER may also concern a different
   matter than the restatement.
-- The model sometimes mislabels or misreads data. The cross-check catches numeric errors but not prose errors in
-  explanations.
+- The model (glm-5.3-flash) is often wrong, and runs are not repeatable. This is why the reference code wins:
+  - One fresh GoPro report (run `c26050d55615`) failed 19 cross-checks: 4 wrong values and 15 values the model
+    did not report.
+  - An earlier run failed 11 checks. That run's model F-score was 1.37 vs the reference 0.97, which would have
+    crossed the 1.0 flag line.
+  - A gross-margin ask once cited peer margins from memory. The prompt now forbids that. A rerun used a tag the
+    company doesn't file and gave up.
+- Prose errors: the prompt now gets the official name, ticker and CIK, and a post-check fixes wrong company names
+  next to the CIK. Other prose errors are not checked.
+- The sandbox has no network, so asks needing document text (e.g. 10-K/A narrative) can't be answered. Only metadata is
+  staged.

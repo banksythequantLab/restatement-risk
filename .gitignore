@@ -2,3 +2,5 @@ cache/
 runs/
 __pycache__/
 .env
+submission/*.mp4
+*.bak*
